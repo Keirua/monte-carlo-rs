@@ -28,6 +28,23 @@ fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
     observations
 }
 
+fn create_histogram(values: &[f64], num_bins: usize) -> (f64, f64, Vec<u32>) {
+    let min = values.iter().fold(f64::INFINITY, |acc, &val| acc.min(val));
+    let max = values.iter().fold(f64::NEG_INFINITY, |acc, &val| acc.max(val));
+    let bin_width = (max - min) / num_bins as f64;
+
+    let mut bins = vec![0; num_bins];
+
+    for &val in values {
+        let bin = ((val - min) / bin_width) as usize;
+        if bin < num_bins {
+            bins[bin] += 1;
+        }
+    }
+
+    (min, max, bins)
+}
+
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -46,6 +63,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     
     let observations = estimate_expectation(args.nb_toys, args.iterations);
+    let (min, max, histogram) = create_histogram(&observations, 10);
+
     let mut data = Data::new(observations);
 
     let mut deciles = [0.; 10];
@@ -58,5 +77,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("mean: {:?}", data.mean());
     println!("deciles: {:?}", deciles);
+    println!("histogram: {:?}", histogram);
     Ok(())
 }
