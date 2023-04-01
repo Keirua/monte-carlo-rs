@@ -30,6 +30,7 @@ fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
             buy_meals_until_all_toys(nb_toys, 100_000) as f64
         })
         .collect();
+    pb.finish();
     observations
 }
 
