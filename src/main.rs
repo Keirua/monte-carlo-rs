@@ -45,6 +45,8 @@ fn create_histogram(values: &[f64], num_bins: usize) -> (f64, f64, Vec<u32>) {
     (min, max, bins)
 }
 
+use plotters::prelude::*;
+const OUT_FILE_NAME: &'static str = "histogram.png";
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -63,7 +65,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     
     let observations = estimate_expectation(args.nb_toys, args.iterations);
-    let (min, max, histogram) = create_histogram(&observations, 10);
+    let nb_bins = 30;
+    let (min, max, histogram) = create_histogram(&observations, nb_bins);
 
     let mut data = Data::new(observations);
 
@@ -78,5 +81,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("mean: {:?}", data.mean());
     println!("deciles: {:?}", deciles);
     println!("histogram: {:?}", histogram);
+    
+    let root = BitMapBackend::new(OUT_FILE_NAME, (640, 480)).into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption("Histogram", ("sans-serif", 50.0))
+        .build_cartesian_2d(((0 as u32)..(nb_bins as u32)).into_segmented(), ((0 as u32)..(*histogram.iter().max().unwrap())))?;
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .bold_line_style(&WHITE.mix(0.3))
+        .y_desc("Count")
+        .x_desc("Bucket")
+        .axis_desc_style(("sans-serif", 15))
+        .draw()?;
+
+    chart.draw_series(
+        Histogram::vertical(&chart)
+            .style(RED.mix(0.5).filled())
+            .data(histogram.iter().enumerate().map(|(i, x)| (i as u32, *x))),
+    )?;
+
+    // To avoid the IO failure being ignored silently, we manually call the present function
+    root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+    println!("Result has been saved to {}", OUT_FILE_NAME);
+
     Ok(())
 }
