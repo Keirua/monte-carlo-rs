@@ -4,7 +4,8 @@ use rand::Rng;
 use rayon::prelude::*;
 use statrs::statistics::*;
 // use plotters::prelude::*;
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
+use std::fmt::Write;
 
 fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
     let mut owned_toys = vec![false; n];
@@ -22,6 +23,11 @@ fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
 fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
     assert!(nb_iterations > 0);
     let pb = ProgressBar::new(nb_iterations.try_into().unwrap());
+    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})")
+        .unwrap()
+        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+        .progress_chars("#>-"));
+
     let observations: Vec<_> = (0..nb_iterations)
         .into_par_iter()
         .map(|_| {
