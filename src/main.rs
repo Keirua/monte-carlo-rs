@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate statrs;
 use clap::Parser;
 use rand::Rng;
@@ -23,7 +22,7 @@ fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
 fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
     assert!(nb_iterations > 0);
     let pb = ProgressBar::new(nb_iterations.try_into().unwrap());
-    let mut observations: Vec<_> = (0..nb_iterations)
+    let observations: Vec<_> = (0..nb_iterations)
         .into_par_iter()
         .map(|_| {
             pb.inc(1);
@@ -36,7 +35,7 @@ fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
 
 fn estimate_expectation_no_pb(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
     assert!(nb_iterations > 0);
-    let mut observations: Vec<_> = (0..nb_iterations)
+    let observations: Vec<_> = (0..nb_iterations)
         .into_par_iter()
         .map(|_| buy_meals_until_all_toys(nb_toys, 100_000) as f64)
         .collect();
@@ -63,7 +62,7 @@ fn create_histogram(values: &[f64], num_bins: usize) -> (f64, f64, Vec<u32>) {
 }
 
 use plotters::prelude::*;
-const OUT_FILE_NAME: &'static str = "histogram.png";
+const OUT_FILE_NAME: &str = "histogram.png";
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -92,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let nb_bins = 30;
-    let (min, max, histogram) = create_histogram(&observations, nb_bins);
+    let (_min, _max, histogram) = create_histogram(&observations, nb_bins);
 
     let mut data = Data::new(observations);
 
@@ -117,14 +116,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .margin(5)
         .caption("Histogram", ("sans-serif", 50.0))
         .build_cartesian_2d(
-            ((0 as u32)..(nb_bins as u32)).into_segmented(),
-            ((0 as u32)..(*histogram.iter().max().unwrap())),
+            (0_u32..(nb_bins as u32)).into_segmented(),
+            0_u32..(*histogram.iter().max().unwrap()),
         )?;
 
     chart
         .configure_mesh()
         .disable_x_mesh()
-        .bold_line_style(&WHITE.mix(0.3))
+        .bold_line_style(WHITE.mix(0.3))
         .y_desc("Count")
         .x_desc("Bucket")
         .axis_desc_style(("sans-serif", 15))
