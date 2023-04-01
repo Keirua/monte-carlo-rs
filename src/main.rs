@@ -20,47 +20,61 @@ fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
     panic!("Expected simulation to finish in {} iterations.", iterlimit);
 }
 
-fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
+fn estimate_expectation<F>(nb_iterations: usize, f: F) -> Vec<f64>
+where
+    F: Fn() -> usize + Sync + Send,
+{
     assert!(nb_iterations > 0);
+    let f = std::sync::Arc::new(f);
     let pb = ProgressBar::new(nb_iterations.try_into().unwrap());
-    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})")
+    pb.set_style(
+        ProgressStyle::with_template(
+            "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len} ({eta})",
+        )
         .unwrap()
-        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-        .progress_chars("#>-"));
-
+        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| {
+            write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+        })
+        .progress_chars("#>-"),
+    );
     let observations: Vec<_> = (0..nb_iterations)
         .into_par_iter()
         .map(|_| {
             pb.inc(1);
-            buy_meals_until_all_toys(nb_toys, 100_000) as f64
+            f() as f64
         })
         .collect();
     pb.finish();
     observations
 }
 
-fn estimate_expectation_no_pb(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
+fn estimate_expectation_no_pb<F>(nb_iterations: usize, f: F) -> Vec<f64>
+where
+    F: Fn() -> usize + Sync + Send,
+{
     assert!(nb_iterations > 0);
+    let f = std::sync::Arc::new(f);
+
     let observations: Vec<_> = (0..nb_iterations)
         .into_par_iter()
-        .map(|_| buy_meals_until_all_toys(nb_toys, 100_000) as f64)
+        .map(|_| f() as f64)
         .collect();
     observations
 }
 
-fn create_histogram(values: &[f64], num_bins: usize) -> (f64, f64, Vec<u32>) {
+fn create_histogram(values: &[f64], num_bins: u32) -> (f64, f64, Vec<u32>) {
     let min = values.iter().fold(f64::INFINITY, |acc, &val| acc.min(val));
     let max = values
         .iter()
         .fold(f64::NEG_INFINITY, |acc, &val| acc.max(val));
     let bin_width = (max - min) / num_bins as f64;
 
-    let mut bins = vec![0; num_bins];
+    let mut bins = vec![0; num_bins as usize];
 
     for &val in values {
-        let bin = ((val - min) / bin_width) as usize;
+        let bin = ((val - min) / bin_width) as u32;
         if bin < num_bins {
-            bins[bin] += 1;
+            bins[bin as usize] += 1;
         }
     }
 
@@ -87,31 +101,7 @@ struct Args {
     with_pb: bool,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
-
-    let observations = if args.with_pb {
-        estimate_expectation(args.nb_toys, args.iterations)
-    } else {
-        estimate_expectation_no_pb(args.nb_toys, args.iterations)
-    };
-
-    let nb_bins = 30;
-    let (_min, _max, histogram) = create_histogram(&observations, nb_bins);
-
-    let mut data = Data::new(observations);
-
-    let mut deciles = [0.; 10];
-    for i in 1..=10 {
-        let q = i as f64 / 10.0;
-        let quantile = data.quantile(q);
-        deciles[i - 1] = quantile;
-    }
-
-    println!("mean: {:?}", data.mean());
-    println!("deciles: {:?}", deciles);
-    println!("histogram: {:?}", histogram);
-
+fn draw_histogram(histogram: &Vec<u32>, nb_bins: u32) -> Result<(), Box<dyn std::error::Error>> {
     let root = BitMapBackend::new(OUT_FILE_NAME, (640, 480)).into_drawing_area();
 
     root.fill(&WHITE)?;
@@ -146,4 +136,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Result has been saved to {}", OUT_FILE_NAME);
 
     Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let buy_meals = || buy_meals_until_all_toys(args.nb_toys, 100_000);
+
+    let observations = if args.with_pb {
+        estimate_expectation(args.iterations, buy_meals)
+    } else {
+        estimate_expectation_no_pb(args.iterations, buy_meals)
+    };
+
+    let nb_bins = 30u32;
+    let (_min, _max, histogram) = create_histogram(&observations, nb_bins);
+
+    let mut data = Data::new(observations);
+
+    let mut deciles = [0.; 10];
+    for i in 1..=10 {
+        let q = i as f64 / 10.0;
+        let quantile = data.quantile(q);
+        deciles[i - 1] = quantile;
+    }
+
+    println!("mean: {:?}", data.mean());
+    println!("deciles: {:?}", deciles);
+    println!("histogram: {:?}", histogram);
+    draw_histogram(&histogram, nb_bins)
 }
