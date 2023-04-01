@@ -5,6 +5,7 @@ use rayon::prelude::*;
 use clap::Parser;
 use statrs::statistics::*;
 // use plotters::prelude::*;
+use indicatif::ProgressBar;
 
 fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
     let mut owned_toys = vec![false; n];
@@ -21,9 +22,24 @@ fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
 
 fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
     assert!(nb_iterations > 0);
+    let pb = ProgressBar::new(nb_iterations.try_into().unwrap());
     let mut observations: Vec<_> = (0..nb_iterations)
         .into_par_iter()
-        .map(|_| buy_meals_until_all_toys(nb_toys, 5000) as f64)
+        .map(|_| {
+            pb.inc(1);
+            buy_meals_until_all_toys(nb_toys, 100_000) as f64
+        })
+        .collect();
+    observations
+}
+
+fn estimate_expectation_no_pb(nb_toys: usize, nb_iterations: usize) -> Vec<f64> {
+    assert!(nb_iterations > 0);
+    let mut observations: Vec<_> = (0..nb_iterations)
+        .into_par_iter()
+        .map(|_| {
+            buy_meals_until_all_toys(nb_toys, 100_000) as f64
+        })
         .collect();
     observations
 }
@@ -59,12 +75,21 @@ struct Args {
     /// Number of iterations the simulation will run
     #[arg(short, long, default_value_t = 1)]
     iterations: usize,
+
+    /// Number of iterations the simulation will run
+    #[arg(long, default_value_t = false)]
+    with_pb: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     
-    let observations = estimate_expectation(args.nb_toys, args.iterations);
+    let observations = if args.with_pb {
+        estimate_expectation(args.nb_toys, args.iterations)
+    } else {
+        estimate_expectation_no_pb(args.nb_toys, args.iterations)
+    };
+
     let nb_bins = 30;
     let (min, max, histogram) = create_histogram(&observations, nb_bins);
 
