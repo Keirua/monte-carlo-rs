@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate statrs;
+use clap::Parser;
 use rand::Rng;
 use rayon::prelude::*;
-use clap::Parser;
 use statrs::statistics::*;
 // use plotters::prelude::*;
 use indicatif::ProgressBar;
@@ -38,16 +38,16 @@ fn estimate_expectation_no_pb(nb_toys: usize, nb_iterations: usize) -> Vec<f64> 
     assert!(nb_iterations > 0);
     let mut observations: Vec<_> = (0..nb_iterations)
         .into_par_iter()
-        .map(|_| {
-            buy_meals_until_all_toys(nb_toys, 100_000) as f64
-        })
+        .map(|_| buy_meals_until_all_toys(nb_toys, 100_000) as f64)
         .collect();
     observations
 }
 
 fn create_histogram(values: &[f64], num_bins: usize) -> (f64, f64, Vec<u32>) {
     let min = values.iter().fold(f64::INFINITY, |acc, &val| acc.min(val));
-    let max = values.iter().fold(f64::NEG_INFINITY, |acc, &val| acc.max(val));
+    let max = values
+        .iter()
+        .fold(f64::NEG_INFINITY, |acc, &val| acc.max(val));
     let bin_width = (max - min) / num_bins as f64;
 
     let mut bins = vec![0; num_bins];
@@ -84,7 +84,7 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    
+
     let observations = if args.with_pb {
         estimate_expectation(args.nb_toys, args.iterations)
     } else {
@@ -103,11 +103,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         deciles[i - 1] = quantile;
     }
 
-
     println!("mean: {:?}", data.mean());
     println!("deciles: {:?}", deciles);
     println!("histogram: {:?}", histogram);
-    
+
     let root = BitMapBackend::new(OUT_FILE_NAME, (640, 480)).into_drawing_area();
 
     root.fill(&WHITE)?;
@@ -117,7 +116,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .y_label_area_size(40)
         .margin(5)
         .caption("Histogram", ("sans-serif", 50.0))
-        .build_cartesian_2d(((0 as u32)..(nb_bins as u32)).into_segmented(), ((0 as u32)..(*histogram.iter().max().unwrap())))?;
+        .build_cartesian_2d(
+            ((0 as u32)..(nb_bins as u32)).into_segmented(),
+            ((0 as u32)..(*histogram.iter().max().unwrap())),
+        )?;
 
     chart
         .configure_mesh()
