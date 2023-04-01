@@ -1,5 +1,6 @@
-extern crate rand;
 use rand::Rng;
+use rayon::prelude::*;
+use clap::Parser;
 
 fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
     let mut owned_toys = vec![false; n];
@@ -16,10 +17,10 @@ fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
 
 fn estimate_expectation(nb_toys: usize, nb_iterations: usize) -> f64 {
     assert!(nb_iterations > 0);
-    let mut total = 0;
-    for _ in 0..nb_iterations {
-        total += buy_meals_until_all_toys(nb_toys, 5000);
-    }
+    let total: usize = (0..nb_iterations)
+        .into_par_iter()
+        .map(|_| buy_meals_until_all_toys(nb_toys, 5000))
+        .sum();
     total as f64 / nb_iterations as f64
 }
 
