@@ -7,20 +7,7 @@ use statrs::statistics::*;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use std::fmt::Write;
 
-fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
-    let mut owned_toys = vec![false; n];
-
-    for i in 0..iterlimit {
-        owned_toys[rand::thread_rng().gen_range(0..n)] = true;
-        if owned_toys.iter().all(|&x| x) {
-            return i + 1;
-        }
-    }
-
-    panic!("Expected simulation to finish in {} iterations.", iterlimit);
-}
-
-fn mt_simulate<F>(nb_iterations: usize, f: F) -> Vec<f64>
+pub fn mt_simulate<F>(nb_iterations: usize, f: F) -> Vec<f64>
 where
     F: Fn() -> usize + Sync + Send,
 {
@@ -48,7 +35,7 @@ where
     observations
 }
 
-fn mt_simulate_no_progressbar<F>(nb_iterations: usize, f: F) -> Vec<f64>
+pub fn mt_simulate_no_progressbar<F>(nb_iterations: usize, f: F) -> Vec<f64>
 where
     F: Fn() -> usize + Sync + Send,
 {
@@ -62,7 +49,7 @@ where
     observations
 }
 
-fn create_histogram(values: &[f64], num_bins: u32) -> (f64, f64, Vec<u32>) {
+pub fn create_histogram(values: &[f64], num_bins: u32) -> (f64, f64, Vec<u32>) {
     let min = values.iter().fold(f64::INFINITY, |acc, &val| acc.min(val));
     let max = values
         .iter()
@@ -84,24 +71,7 @@ fn create_histogram(values: &[f64], num_bins: u32) -> (f64, f64, Vec<u32>) {
 use plotters::prelude::*;
 const OUT_FILE_NAME: &str = "histogram.png";
 
-/// Simple program to greet a person
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Number of toys to find
-    #[arg(short, long, default_value_t = 1)]
-    nb_toys: usize,
-
-    /// Number of iterations the simulation will run
-    #[arg(short, long, default_value_t = 1)]
-    iterations: usize,
-
-    /// Number of iterations the simulation will run
-    #[arg(long, default_value_t = false)]
-    with_pb: bool,
-}
-
-fn draw_histogram(histogram: &Vec<u32>, nb_bins: u32) -> Result<(), Box<dyn std::error::Error>> {
+pub fn draw_histogram(histogram: &Vec<u32>, nb_bins: u32) -> Result<(), Box<dyn std::error::Error>> {
     let root = BitMapBackend::new(OUT_FILE_NAME, (640, 480)).into_drawing_area();
 
     root.fill(&WHITE)?;
@@ -136,32 +106,4 @@ fn draw_histogram(histogram: &Vec<u32>, nb_bins: u32) -> Result<(), Box<dyn std:
     println!("Result has been saved to {}", OUT_FILE_NAME);
 
     Ok(())
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
-    let function_to_simulate = || buy_meals_until_all_toys(args.nb_toys, 100_000);
-
-    let observations = if args.with_pb {
-        mt_simulate(args.iterations, function_to_simulate)
-    } else {
-        mt_simulate_no_progressbar(args.iterations, function_to_simulate)
-    };
-
-    let nb_bins = 30u32;
-    let (_min, _max, histogram) = create_histogram(&observations, nb_bins);
-
-    let mut data = Data::new(observations);
-
-    let mut deciles = [0.; 10];
-    for i in 1..=10 {
-        let q = i as f64 / 10.0;
-        let quantile = data.quantile(q);
-        deciles[i - 1] = quantile;
-    }
-
-    println!("mean: {:?}", data.mean());
-    println!("deciles: {:?}", deciles);
-    println!("histogram: {:?}", histogram);
-    draw_histogram(&histogram, nb_bins)
 }
