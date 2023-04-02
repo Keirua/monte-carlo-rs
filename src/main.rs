@@ -20,7 +20,7 @@ fn buy_meals_until_all_toys(n: usize, iterlimit: usize) -> usize {
     panic!("Expected simulation to finish in {} iterations.", iterlimit);
 }
 
-fn estimate_expectation<F>(nb_iterations: usize, f: F) -> Vec<f64>
+fn mt_simulate<F>(nb_iterations: usize, f: F) -> Vec<f64>
 where
     F: Fn() -> usize + Sync + Send,
 {
@@ -48,7 +48,7 @@ where
     observations
 }
 
-fn estimate_expectation_no_pb<F>(nb_iterations: usize, f: F) -> Vec<f64>
+fn mt_simulate_no_progressbar<F>(nb_iterations: usize, f: F) -> Vec<f64>
 where
     F: Fn() -> usize + Sync + Send,
 {
@@ -140,12 +140,12 @@ fn draw_histogram(histogram: &Vec<u32>, nb_bins: u32) -> Result<(), Box<dyn std:
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let buy_meals = || buy_meals_until_all_toys(args.nb_toys, 100_000);
+    let function_to_simulate = || buy_meals_until_all_toys(args.nb_toys, 100_000);
 
     let observations = if args.with_pb {
-        estimate_expectation(args.iterations, buy_meals)
+        mt_simulate(args.iterations, function_to_simulate)
     } else {
-        estimate_expectation_no_pb(args.iterations, buy_meals)
+        mt_simulate_no_progressbar(args.iterations, function_to_simulate)
     };
 
     let nb_bins = 30u32;
